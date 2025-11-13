@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - User Admin Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="Styles.css">
+</head>
+<body>
+    <div class="glass-card glass-card-large">
+        <div class="view-header">
+            <div class="header-left">
+                <div class="icon-container" style="width: 60px; height: 60px; margin: 0;">
+                    <svg width="30" height="30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.623 0-1.613-.22-3.16-.628-4.65a11.959 11.959 0 0 1-8.374-6.031Z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="header-title">Admin Dashboard</h1>
+                    <p style="font-size: 0.875rem; color: rgba(255, 255, 255, 0.7); margin: 0;" id="admin-name-display">
+                        Loading...
+                    </p>
+                </div>
+            </div>
+            <button id="logout-button-admin" class="btn btn-danger btn-icon">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+                </svg>
+                Logout
+            </button>
+        </div>
+        
+        <div class="welcome-badge">
+            ✨ Admin Access Granted • <span id="user-count">0</span> Registered Users
+        </div>
+        
+        <div id="admin-message" class="message success hidden"></div>
+        
+        <div class="table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email Address</th>
+                        <th>Phone Number</th>
+                        <th>User ID</th>
+                        <th>Registered On</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="user-list-table-body">
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 2rem;">Loading users...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="edit-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit User Profile</h2>
+            </div>
+            
+            <form id="edit-form">
+                <div id="edit-message" class="message error hidden"></div>
+                
+                <input type="hidden" id="edit-user-id">
+                
+                <div class="form-group">
+                    <label for="edit-name" class="form-label">Full Name</label>
+                    <input type="text" id="edit-name" name="name" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-phone" class="form-label">Phone Number</label>
+                    <input type="tel" id="edit-phone" name="phone" class="form-input">
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-email" class="form-label">Email Address</label>
+                    <input type="email" id="edit-email" name="email" class="form-input" required>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" id="cancel-edit-button" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allUsers = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('api/check-session.php');
+                const data = await response.json();
+                
+                if (!data.success || data.data.role !== 'admin') {
+                    window.location.href = 'Admin_login.html';
+                    return;
+                }
+                
+                const adminData = data.data;
+                document.getElementById('admin-name-display').textContent = 
+                    `Logged in as ${adminData.name} (${adminData.email})`;
+                
+                loadUsers();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                window.location.href = 'Admin_login.html';
+            }
+        });
+
+        async function loadUsers() {
+            try {
+                const response = await fetch('api/get-users.php');
+                const data = await response.json();
+                
+                const tbody = document.getElementById('user-list-table-body');
+                
+                if (!data.success) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #ef4444;">${data.message}</td></tr>`;
+                    return;
+                }
+                
+                allUsers = data.data.users;
+                document.getElementById('user-count').textContent = allUsers.length;
+                
+                if (allUsers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: rgba(30, 41, 59, 0.6);">No users registered yet.</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = allUsers.map(user => {
+                    const registeredDate = user.registered_at ? new Date(user.registered_at).toLocaleDateString() : 'N/A';
+                    return `
+                    <tr>
+                        <td>${user.name}</td>
+                        <td>${user.email}</td>
+                        <td>${user.phone || 'N/A'}</td>
+                        <td style="font-family: monospace; font-size: 0.85rem;">${user.user_id || 'N/A'}</td>
+                        <td>${registeredDate}</td>
+                        <td>
+                            <div class="table-actions">
+                                <button class="action-btn action-btn-edit" onclick="editUser(${user.id})">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                    </svg>
+                                    Edit
+                                </button>
+                                <button class="action-btn action-btn-delete" onclick="deleteUser(${user.id}, '${user.name}')">
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                    </svg>
+                                    Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Error loading users:', error);
+                const tbody = document.getElementById('user-list-table-body');
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #ef4444;">Failed to load users.</td></tr>`;
+            }
+        }
+
+        function editUser(userId) {
+            const user = allUsers.find(u => u.id === userId);
+            if (!user) return;
+            
+            document.getElementById('edit-user-id').value = user.id;
+            document.getElementById('edit-name').value = user.name;
+            document.getElementById('edit-phone').value = user.phone || '';
+            document.getElementById('edit-email').value = user.email;
+            
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        async function deleteUser(userId, userName) {
+            if (!confirm(`Are you sure you want to delete user "${userName}"?`)) {
+                return;
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('user_id', userId);
+                
+                const response = await fetch('api/delete-user.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(`✅ User "${userName}" deleted successfully!`);
+                    loadUsers();
+                } else {
+                    showMessage(`❌ ${data.message}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('❌ Failed to delete user');
+            }
+        }
+
+        function showMessage(text) {
+            const message = document.getElementById('admin-message');
+            message.textContent = text;
+            message.classList.remove('hidden');
+            setTimeout(() => {
+                message.classList.add('hidden');
+            }, 4000);
+        }
+
+        document.getElementById('edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            formData.append('user_id', document.getElementById('edit-user-id').value);
+            
+            try {
+                const response = await fetch('api/update-user.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('edit-modal').classList.add('hidden');
+                    showMessage('✅ User updated successfully!');
+                    loadUsers();
+                } else {
+                    document.getElementById('edit-message').textContent = '❌ ' + data.message;
+                    document.getElementById('edit-message').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('edit-message').textContent = '❌ Failed to update user';
+                document.getElementById('edit-message').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('cancel-edit-button').addEventListener('click', () => {
+            document.getElementById('edit-modal').classList.add('hidden');
+        });
+
+        document.querySelector('.modal-overlay').addEventListener('click', () => {
+            document.getElementById('edit-modal').classList.add('hidden');
+        });
+
+        document.getElementById('logout-button-admin').addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to logout?')) return;
+            
+            try {
+                const response = await fetch('api/logout.php', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.location.href = 'Admin_login.html';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                window.location.href = 'Admin_login.html';
+            }
+        });
+    </script>
+</body>
+</html>
